@@ -9,20 +9,15 @@ class TokenController {
   // Récupérer tous les tokens
   async getAllTokens(req, res) {
     try {
-      const { page = 1, limit = 10, sortBy = 'createdAt', order = 'desc' } = req.query;
+      const { page = 1, limit = 50, sortBy = 'createdAt', order = 'desc' } = req.query;
       const tokens = await Token.find()
         .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
         .limit(limit * 1)
         .skip((page - 1) * limit)
         .exec();
 
-      const count = await Token.countDocuments();
-      
-      res.json({
-        tokens,
-        totalPages: Math.ceil(count / limit),
-        currentPage: page
-      });
+      // Renvoyer directement le tableau de tokens
+      res.json(tokens);
     } catch (error) {
       res.status(500).json({ message: error.message });
     }

@@ -49,4 +49,27 @@ const tokenSchema = new mongoose.Schema({
   },
   creator: {
     type: String,
-    default: nu
+    default: null
+  },
+  holdersCount: {
+    type: Number,
+    default: 0
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  lastUpdated: {
+    type: Date,
+    default: Date.now
+  }
+}, {
+  timestamps: { createdAt: 'createdAt', updatedAt: 'lastUpdated' }
+});
+
+// Index pour recherche rapide
+tokenSchema.index({ address: 1, mint: 1 });
+tokenSchema.index({ symbol: 1 });
+tokenSchema.index({ createdAt: -1 });
+
+module.exports = mongoose.model('Token', tokenSchema); 

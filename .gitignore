@@ -1,0 +1,90 @@
+# Dépendances
+node_modules/
+.pnp/
+.pnp.js
+
+# Production
+/dist
+/build
+/out
+
+# Environnement
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.DS_Store
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Fichiers de débogage
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Couverture de tests
+coverage/
+.nyc_output/
+
+# Frontend Vue.js
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+frontend/.env
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/.env
+
+# Cache NPM/Yarn
+.npm/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Fichiers système
+Thumbs.db
+desktop.ini
+.directory
+
+# Fichiers spécifiques à macOS
+._*
+.AppleDouble
+.LSOverride
+Icon
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Fichiers spécifiques à Windows
+ehthumbs.db
+ehthumbs_vista.db
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Données MongoDB locales
+/data/db
+
