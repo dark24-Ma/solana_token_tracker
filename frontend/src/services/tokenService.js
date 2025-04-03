@@ -8,7 +8,7 @@ class TokenService {
    */
   static async fetchAllTokens() {
     try {
-      const response = await fetch('http://localhost:3000/api/tokens');
+      const response = await fetch('http://185.97.146.99:6607/api/tokens');
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
@@ -38,7 +38,7 @@ class TokenService {
    */
   static async fetchTokenByAddress(address) {
     try {
-      const response = await fetch(`http://localhost:3000/api/tokens/${address}`);
+      const response = await fetch(`http://185.97.146.99:6607/api/tokens/${address}`);
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }

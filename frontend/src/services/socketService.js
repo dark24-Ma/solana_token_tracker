@@ -7,7 +7,7 @@ class SocketService {
   }
 
   connect() {
-    this.socket = io('http://localhost:3000');
+    this.socket = io('http://185.97.146.99:6607');
 
     this.socket.on('connect', () => {
       console.log('Connecté au serveur WebSocket');
