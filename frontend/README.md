@@ -67,6 +67,61 @@ pm2 startup
 Une fois déployée, l'application sera accessible à l'adresse:
 - http://185.97.146.99:6608 (ou votre nom de domaine)
 
+## Déploiement sur Netlify
+
+Cette application est configurée pour être déployée facilement sur Netlify.
+
+### Prérequis
+
+- Un compte [Netlify](https://www.netlify.com/)
+- Le code source accessible depuis GitHub, GitLab ou Bitbucket
+
+### Étapes pour le déploiement
+
+1. **Préparation des fichiers**
+
+   Utilisez le script de configuration pour mettre en place les fichiers nécessaires :
+
+   ```bash
+   cd frontend
+   chmod +x scripts/setup-netlify.sh
+   ./scripts/setup-netlify.sh
+   ```
+
+   Cela créera automatiquement :
+   - `netlify.toml` - Configuration principale pour Netlify
+   - `_redirects` - Gestion des redirections SPA
+   - `.env.production` - Variables d'environnement pour la production
+
+2. **Déploiement sur Netlify**
+
+   - Connectez-vous à votre compte Netlify
+   - Cliquez sur "New site from Git"
+   - Sélectionnez votre dépôt
+   - Configurez les paramètres de build :
+     - Build command: `npm run build`
+     - Publish directory: `dist`
+   - Cliquez sur "Deploy site"
+
+3. **Configuration des variables d'environnement**
+
+   Les variables d'environnement sont déjà configurées dans `netlify.toml`, mais vous pouvez les ajuster dans l'interface Netlify si nécessaire :
+   - `VUE_APP_API_URL`
+   - `VUE_APP_SOCKET_URL`
+
+### Problèmes connus
+
+#### CORS et connexion à l'API
+
+Si vous rencontrez des erreurs CORS, vérifiez que votre backend autorise le domaine de votre application Netlify dans sa configuration CORS.
+
+#### Erreurs de chargement JavaScript
+
+Si vous obtenez des erreurs comme `Unexpected token '<'` dans la console, cela peut indiquer un problème avec les routes SPA. Vérifiez que :
+- Le fichier `_redirects` est bien copié dans le dossier `dist`
+- La configuration `netlify.toml` est correcte
+- Les chemins d'accès sont configurés correctement dans votre application Vue
+
 ## Développement local
 
 Pour le développement local:
@@ -79,3 +134,7 @@ npm run serve
 ```
 
 L'application sera accessible à l'adresse http://localhost:8080
+
+## Configuration
+
+Voir [Configuration Reference](https://cli.vuejs.org/config/).

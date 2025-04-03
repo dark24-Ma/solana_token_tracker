@@ -4,7 +4,7 @@ import io from 'socket.io-client';
 // Configuration des URLs d'API et de Socket
 // Pour le déploiement:
 // 1. Le backend est sur le VPS à l'adresse 185.97.146.99 port 6607
-// 2. Le frontend est déployé sur Vercel à l'adresse solana-token-tracker-bb9j.vercel.app
+// 2. Le frontend est déployé sur Netlify
 
 // URL de base pour l'API - Environnement de production vs développement
 const API_BASE_URL = process.env.VUE_APP_API_URL || 
@@ -18,6 +18,7 @@ const SOCKET_URL = process.env.VUE_APP_SOCKET_URL ||
     ? 'http://185.97.146.99:6607'      // URL de production sur le VPS
     : 'http://localhost:6607');        // URL de développement
 
+console.log('Environnement:', process.env.NODE_ENV);
 console.log('API_BASE_URL:', API_BASE_URL);
 console.log('SOCKET_URL:', SOCKET_URL);
 
@@ -32,26 +33,53 @@ const apiClient = axios.create({
   withCredentials: true
 });
 
-// Création de la connexion socket
-const socket = io(SOCKET_URL, {
+// Intercepteur pour les erreurs
+apiClient.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('Erreur API:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Options pour Socket.IO
+const socketOptions = {
   transports: ['websocket', 'polling'],
   reconnection: true,
-  reconnectionAttempts: 10,
+  reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000,
+  autoConnect: true,
   withCredentials: true
-});
+};
 
-// Événements socket
+// Création de la connexion socket
+const socket = io(SOCKET_URL, socketOptions);
+
+// Gestion des événements socket
 socket.on('connect', () => {
   console.log('Connecté au serveur Socket.IO');
 });
 
-socket.on('disconnect', () => {
-  console.log('Déconnecté du serveur Socket.IO');
-});
-
 socket.on('connect_error', (error) => {
   console.error('Erreur de connexion socket:', error);
+});
+
+socket.on('disconnect', (reason) => {
+  console.log('Déconnecté du serveur Socket.IO:', reason);
+});
+
+socket.on('reconnect', (attemptNumber) => {
+  console.log(`Reconnecté au serveur Socket.IO après ${attemptNumber} tentatives`);
+});
+
+socket.on('reconnect_attempt', (attemptNumber) => {
+  console.log(`Tentative de reconnexion #${attemptNumber}`);
+});
+
+socket.on('error', (error) => {
+  console.error('Erreur socket:', error);
 });
 
 // API pour les tokens
