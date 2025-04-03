@@ -268,19 +268,19 @@ export default {
   --info-color: #00C2FF;
   
   /* Dark Mode Background */
-  --bg-dark: #131418;
-  --bg-card: #1E1E24;
-  --bg-hover: #2A2A35;
+  --bg-dark: #000000;
+  --bg-card: #0A0A0A;
+  --bg-hover: #141414;
   
   /* Text Colors */
-  --text-primary: #F8F9FA;
-  --text-secondary: #CED4DA;
-  --text-muted: #868E96;
+  --text-primary: #FFFFFF;
+  --text-secondary: #E0E0E0;
+  --text-muted: #A0A0A0;
   --text-bright: #FFFFFF;
   --text-highlight: #14F195;
   
   /* Border Colors */
-  --border-color: #2A2A35;
+  --border-color: #333333;
 }
 
 html, body {
@@ -322,17 +322,17 @@ body {
 
 /* Navbar Styling */
 .navbar {
-  background-color: rgba(30, 30, 36, 0.95) !important;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  border-bottom: 1px solid var(--border-color);
+  background-color: rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(153, 69, 255, 0.2);
   padding: 0.75rem 1rem;
 }
 
 .solana-logo {
   height: 32px;
   width: auto;
-  filter: drop-shadow(0 0 5px rgba(153, 69, 255, 0.5));
+  filter: drop-shadow(0 0 10px rgba(153, 69, 255, 0.8));
 }
 
 .navbar-brand {
@@ -346,7 +346,7 @@ body {
 .navbar-brand span.text-primary {
   color: var(--primary-color) !important;
   font-weight: 800;
-  text-shadow: 0 0 10px rgba(153, 69, 255, 0.3);
+  text-shadow: 0 0 15px rgba(153, 69, 255, 0.8), 0 0 30px rgba(153, 69, 255, 0.4);
 }
 
 .nav-link {
@@ -363,11 +363,16 @@ body {
   background-color: var(--bg-hover);
 }
 
+.nav-link.active {
+  box-shadow: inset 0 0 10px rgba(153, 69, 255, 0.1);
+  border: 1px solid rgba(153, 69, 255, 0.2);
+}
+
 /* Footer Styling */
 .footer {
   background-color: var(--bg-card);
-  border-top: 1px solid var(--border-color);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  border-top: 1px solid rgba(153, 69, 255, 0.1);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2), 0 -1px 10px rgba(153, 69, 255, 0.05);
 }
 
 .footer-text {
@@ -392,20 +397,19 @@ body {
   padding: 16px;
   border-radius: 12px;
   background-color: var(--bg-card);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), 0 0 15px rgba(153, 69, 255, 0.1);
   cursor: pointer;
   position: relative;
   overflow: hidden;
   animation: slideIn 0.3s ease-out forwards;
   max-width: 400px;
-  border: 1px solid var(--border-color);
+  border-left: 4px solid;
   transition: all 0.2s ease;
 }
 
 .notification-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-  border-color: var(--primary-color);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--primary-color);
 }
 
 .notification-item.with-actions {
@@ -433,53 +437,56 @@ body {
 }
 
 .notification-item.success {
-  border-left: 4px solid var(--success-color);
+  border-left-color: var(--success-color);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), 0 0 15px rgba(20, 241, 149, 0.1);
 }
 
 .notification-item.error {
-  border-left: 4px solid var(--danger-color);
+  border-left-color: var(--danger-color);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), 0 0 15px rgba(255, 76, 76, 0.1);
 }
 
 .notification-item.warning {
-  border-left: 4px solid var(--warning-color);
+  border-left-color: var(--warning-color);
 }
 
 .notification-item.info {
-  border-left: 4px solid var(--info-color);
+  border-left-color: var(--info-color);
 }
 
 .notification-icon {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 16px;
   font-size: 1.25rem;
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(0, 0, 0, 0.2);
   border-radius: 50%;
   padding: 6px;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05), 0 0 15px rgba(153, 69, 255, 0.3);
 }
 
 .notification-item.success .notification-icon {
   color: var(--success-color);
-  background-color: rgba(20, 241, 149, 0.1);
+  text-shadow: 0 0 10px rgba(20, 241, 149, 0.5);
 }
 
 .notification-item.error .notification-icon {
   color: var(--danger-color);
-  background-color: rgba(255, 76, 76, 0.1);
+  text-shadow: 0 0 10px rgba(255, 76, 76, 0.5);
 }
 
 .notification-item.warning .notification-icon {
   color: var(--warning-color);
-  background-color: rgba(255, 153, 0, 0.1);
+  text-shadow: 0 0 10px rgba(255, 153, 0, 0.5);
 }
 
 .notification-item.info .notification-icon {
   color: var(--info-color);
-  background-color: rgba(0, 194, 255, 0.1);
+  text-shadow: 0 0 10px rgba(0, 194, 255, 0.5);
 }
 
 .notification-content {
@@ -546,18 +553,18 @@ body {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease;
   overflow: hidden;
 }
 
 .card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(153, 69, 255, 0.1);
 }
 
 .card-header {
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: rgba(0, 0, 0, 0.3);
   border-bottom: 1px solid var(--border-color);
   padding: 1rem 1.25rem;
   color: var(--text-bright);
@@ -592,14 +599,16 @@ body {
 .btn-primary {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
-  box-shadow: 0 4px 10px rgba(153, 69, 255, 0.3);
+  box-shadow: 0 4px 15px rgba(153, 69, 255, 0.5), 0 0 30px rgba(153, 69, 255, 0.2);
   color: var(--text-bright);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
 .btn-primary:hover, .btn-primary:focus {
   background-color: var(--primary-dark);
   border-color: var(--primary-dark);
-  box-shadow: 0 6px 15px rgba(153, 69, 255, 0.4);
+  box-shadow: 0 6px 20px rgba(153, 69, 255, 0.7), 0 0 40px rgba(153, 69, 255, 0.3);
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
   transform: translateY(-2px);
   color: var(--text-bright);
 }
@@ -607,12 +616,13 @@ body {
 .btn-outline-primary {
   color: var(--primary-light);
   border-color: var(--primary-color);
+  background-color: rgba(153, 69, 255, 0.05);
 }
 
 .btn-outline-primary:hover, .btn-outline-primary:focus {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
-  box-shadow: 0 4px 10px rgba(153, 69, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(153, 69, 255, 0.4);
   color: var(--text-bright);
 }
 
@@ -689,18 +699,22 @@ body {
   border-radius: 6px;
   padding: 0.35em 0.65em;
   font-size: 0.75em;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .badge.bg-success {
   background-color: rgba(20, 241, 149, 0.15) !important;
   color: var(--success-color);
   border: 1px solid rgba(20, 241, 149, 0.3);
+  text-shadow: 0 0 8px rgba(20, 241, 149, 0.3);
 }
 
 .badge.bg-primary {
   background-color: rgba(153, 69, 255, 0.15) !important;
   color: var(--primary-light);
   border: 1px solid rgba(153, 69, 255, 0.3);
+  text-shadow: 0 0 8px rgba(153, 69, 255, 0.3);
 }
 
 .badge.bg-warning {
@@ -734,13 +748,13 @@ body {
   background-color: var(--bg-hover);
   color: var(--text-bright);
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 0.25rem rgba(153, 69, 255, 0.25);
+  box-shadow: 0 0 0 3px rgba(153, 69, 255, 0.25);
 }
 
 .input-group-text {
-  background-color: var(--bg-hover);
+  background-color: rgba(153, 69, 255, 0.1);
   border: 1px solid var(--border-color);
-  color: var(--text-secondary);
+  color: var(--primary-light);
   border-radius: 8px;
 }
 
@@ -775,7 +789,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--border-color);
+  background-color: rgba(153, 69, 255, 0.3);
   border-radius: 4px;
 }
 

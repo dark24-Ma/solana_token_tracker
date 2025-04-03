@@ -131,6 +131,6 @@ Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou à
 
 ## 📧 Contact
 
-Votre Nom - [@votretwitter](https://twitter.com/votretwitter) - email@example.com
+Votre Nom - [@TitoKoffi](https://x.com/TitoKoffi) - andtit4@gmail.com
 
-Lien du projet: [https://github.com/votreusername/solana-token-tracker](https://github.com/votreusername/solana-token-tracker) 
+Lien du projet: [https://github.com/dark24-Ma/solana_token_tracker.git](https://github.com/dark24-Ma/solana_token_tracker.git) 

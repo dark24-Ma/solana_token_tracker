@@ -22,28 +22,54 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+
+// Configuration pour socket.io adapté pour Vercel
 const io = new Server(httpServer, {
   cors: {
-    origin: ["http://localhost:8080", "http://127.0.0.1:8080"],
+    origin: [
+      "http://localhost:8080", 
+      "http://127.0.0.1:8080",
+      "https://solana-snipper-bot.vercel.app",
+      "https://solana-token-tracker.vercel.app"
+    ],
     methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"]
+    allowedHeaders: ["Content-Type"],
+    credentials: true
   },
-  pingTimeout: 60000, // Augmenter le timeout ping
+  pingTimeout: 60000,
+  // Pour permettre une compatibilité avec les fonctions serverless de Vercel
+  transports: ['websocket', 'polling'],
+  path: '/api/socket.io'
 });
 
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:8080", 
+    "http://127.0.0.1:8080",
+    "https://solana-snipper-bot.vercel.app",
+    "https://solana-token-tracker.vercel.app"
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // Nombre de clients connectés
 let connectedClients = 0;
 
+// Vérifier si on est en environnement de production (Vercel)
+const isProduction = process.env.NODE_ENV === 'production';
+
 // Gestion des erreurs de connexion MongoDB
 const connectToMongoDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/solana_tracker');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/solana_tracker', {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000
+    });
     console.log('Connecté à MongoDB');
     io.emit('systemLog', { type: 'success', message: 'Connecté à MongoDB' });
     return true;
@@ -73,6 +99,17 @@ const connectToSolana = () => {
 // Routes
 app.use('/api/tokens', tokenRoutes);
 
+// Route spécifique pour la santé du serveur (utile pour Vercel)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Endpoint pour les webhooks Vercel
+app.post('/api/webhook', (req, res) => {
+  console.log('Webhook reçu:', req.body);
+  res.status(200).json({ received: true });
+});
+
 // Route de base
 app.get('/', (req, res) => {
   res.json({ 
@@ -80,9 +117,12 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     status: 'running',
     connections: connectedClients,
+    environment: process.env.NODE_ENV || 'development',
     endpoints: {
       tokens: '/api/tokens',
-      tokenByAddress: '/api/tokens/:address'
+      tokenByAddress: '/api/tokens/:address',
+      health: '/api/health',
+      socket: '/api/socket.io'
     }
   });
 });
@@ -111,13 +151,28 @@ io.on('connection', (socket) => {
   // Le client peut demander une vérification manuelle de Solscan
   socket.on('checkSolscan', () => {
     if (global.solanaWatcher) {
-      socket.emit('systemLog', { type: 'info', message: 'Vérification manuelle de Solscan initiée' });
-      global.solanaWatcher.checkSolscanNewTokens()
-        .then(() => {
-          socket.emit('systemLog', { type: 'success', message: 'Vérification de Solscan terminée' });
+      socket.emit('systemLog', { type: 'info', message: 'Vérification manuelle des tokens initiée' });
+      
+      // Utiliser la nouvelle méthode checkManually pour une meilleure gestion des erreurs
+      global.solanaWatcher.checkManually()
+        .then(success => {
+          if (success) {
+            socket.emit('systemLog', { 
+              type: 'success', 
+              message: 'Vérification manuelle terminée avec succès'
+            });
+          } else {
+            socket.emit('systemLog', { 
+              type: 'warning', 
+              message: 'Vérification terminée avec des avertissements'
+            });
+          }
         })
         .catch(err => {
-          socket.emit('systemLog', { type: 'error', message: 'Erreur lors de la vérification de Solscan: ' + err.message });
+          socket.emit('systemLog', { 
+            type: 'error', 
+            message: 'Erreur lors de la vérification: ' + err.message 
+          });
         });
     } else {
       socket.emit('systemLog', { type: 'error', message: 'SolanaWatcher non initialisé' });
@@ -152,7 +207,8 @@ io.on('connection', (socket) => {
         tokenCount,
         clientCount: connectedClients,
         isWatching,
-        serverTime: new Date().toISOString()
+        serverTime: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
       });
       
       socket.emit('systemLog', { 
@@ -169,88 +225,94 @@ io.on('connection', (socket) => {
   });
 });
 
-// Fonction principale
-const startServer = async () => {
-  // Connexion à MongoDB
-  const isMongoConnected = await connectToMongoDB();
-  if (!isMongoConnected) {
-    console.log("Impossible de démarrer le serveur sans connexion MongoDB. Nouvelle tentative dans 10 secondes...");
-    io.emit('systemLog', { type: 'warning', message: 'Tentative de reconnexion à MongoDB dans 10 secondes...' });
-    setTimeout(startServer, 10000);
-    return;
-  }
-
-  // Connexion à Solana
-  const solanaConnection = connectToSolana();
-  if (!solanaConnection) {
-    console.log("Impossible de démarrer le serveur sans connexion Solana. Nouvelle tentative dans 10 secondes...");
-    io.emit('systemLog', { type: 'warning', message: 'Tentative de reconnexion à Solana dans 10 secondes...' });
-    setTimeout(startServer, 10000);
-    return;
-  }
-
-  // Rendre la connexion accessible globalement
-  global.solanaConnection = solanaConnection;
-
-  // Initialiser le service Solana
-  const solanaService = new SolanaService(solanaConnection);
-
-  // Initialiser le watcher et le rendre global pour y accéder dans les événements socket
-  const solanaWatcher = new SolanaWatcher(solanaConnection, io, solanaService);
-  global.solanaWatcher = solanaWatcher;
-
-  // Démarrer la surveillance une fois la connexion à la base de données établie
-  mongoose.connection.once('open', async () => {
-    console.log("Initialisation de la surveillance des tokens Solana...");
-    io.emit('systemLog', { type: 'info', message: 'Initialisation de la surveillance des tokens Solana...' });
-    
-    try {
-      // Vérifier s'il y a des tokens existants, sinon en récupérer quelques-uns pour commencer
-      const tokenCount = await mongoose.connection.db.collection('tokens').countDocuments();
-      if (tokenCount === 0) {
-        console.log("Aucun token trouvé en base de données. Récupération des tokens récents...");
-        io.emit('systemLog', { type: 'info', message: 'Récupération des premiers tokens...' });
-        
-        try {
-          const initialTokens = await solanaService.getRecentTokens(10);
-          console.log(`${initialTokens.length} tokens initiaux récupérés et sauvegardés`);
-          io.emit('systemLog', { type: 'success', message: `${initialTokens.length} tokens initiaux récupérés` });
-        } catch (initError) {
-          console.warn("Erreur lors de la récupération des tokens initiaux:", initError.message);
-          io.emit('systemLog', { type: 'warning', message: 'Erreur lors de la récupération des tokens initiaux' });
-        }
-      } else {
-        console.log(`${tokenCount} tokens trouvés en base de données`);
-        io.emit('systemLog', { type: 'info', message: `${tokenCount} tokens existants en base de données` });
-      }
-      
-      // Démarrer la surveillance
-      console.log("Démarrage de la surveillance des tokens Solana...");
-      io.emit('systemLog', { type: 'info', message: 'Démarrage de la surveillance des nouveaux tokens...' });
-      solanaWatcher.startWatching();
-      
-      io.emit('systemLog', { type: 'success', message: 'Système de surveillance démarré avec succès' });
-    } catch (error) {
-      console.error("Erreur lors de l'initialisation:", error);
-      io.emit('systemLog', { type: 'error', message: "Erreur lors de l'initialisation: " + error.message });
+// Pour Vercel, nous avons besoin de voir si nous sommes dans un environnement serverless
+if (isProduction) {
+  // En environnement de production (Vercel), exporter l'app directement
+  module.exports = app;
+} else {
+  // Fonction principale pour le développement local
+  const startServer = async () => {
+    // Connexion à MongoDB
+    const isMongoConnected = await connectToMongoDB();
+    if (!isMongoConnected) {
+      console.log("Impossible de démarrer le serveur sans connexion MongoDB. Nouvelle tentative dans 10 secondes...");
+      io.emit('systemLog', { type: 'warning', message: 'Tentative de reconnexion à MongoDB dans 10 secondes...' });
+      setTimeout(startServer, 10000);
+      return;
     }
-  });
 
-  // Gestion de l'arrêt propre
-  process.on('SIGINT', async () => {
-    console.log("Arrêt du serveur...");
-    io.emit('systemLog', { type: 'warning', message: 'Arrêt du serveur en cours...' });
-    solanaWatcher.stopWatching();
-    await mongoose.connection.close();
-    console.log("Connexions fermées. Au revoir!");
-    process.exit(0);
-  });
+    // Connexion à Solana
+    const solanaConnection = connectToSolana();
+    if (!solanaConnection) {
+      console.log("Impossible de démarrer le serveur sans connexion Solana. Nouvelle tentative dans 10 secondes...");
+      io.emit('systemLog', { type: 'warning', message: 'Tentative de reconnexion à Solana dans 10 secondes...' });
+      setTimeout(startServer, 10000);
+      return;
+    }
 
-  // Démarrer le serveur
-  httpServer.listen(PORT, () => {
-    console.log(`Serveur démarré sur le port ${PORT}`);
-  });
-};
+    // Rendre la connexion accessible globalement
+    global.solanaConnection = solanaConnection;
 
-// Démarrer le serveur
-startServer(); 
+    // Initialiser le service Solana
+    const solanaService = new SolanaService(solanaConnection);
+
+    // Initialiser le watcher et le rendre global pour y accéder dans les événements socket
+    const solanaWatcher = new SolanaWatcher(solanaConnection, io, solanaService);
+    global.solanaWatcher = solanaWatcher;
+
+    // Démarrer la surveillance une fois la connexion à la base de données établie
+    mongoose.connection.once('open', async () => {
+      console.log("Initialisation de la surveillance des tokens Solana...");
+      io.emit('systemLog', { type: 'info', message: 'Initialisation de la surveillance des tokens Solana...' });
+      
+      try {
+        // Vérifier s'il y a des tokens existants, sinon en récupérer quelques-uns pour commencer
+        const tokenCount = await mongoose.connection.db.collection('tokens').countDocuments();
+        if (tokenCount === 0) {
+          console.log("Aucun token trouvé en base de données. Récupération des tokens récents...");
+          io.emit('systemLog', { type: 'info', message: 'Récupération des premiers tokens...' });
+          
+          try {
+            const initialTokens = await solanaService.getRecentTokens(10);
+            console.log(`${initialTokens.length} tokens initiaux récupérés et sauvegardés`);
+            io.emit('systemLog', { type: 'success', message: `${initialTokens.length} tokens initiaux récupérés` });
+          } catch (initError) {
+            console.warn("Erreur lors de la récupération des tokens initiaux:", initError.message);
+            io.emit('systemLog', { type: 'warning', message: 'Erreur lors de la récupération des tokens initiaux' });
+          }
+        } else {
+          console.log(`${tokenCount} tokens trouvés en base de données`);
+          io.emit('systemLog', { type: 'info', message: `${tokenCount} tokens existants en base de données` });
+        }
+        
+        // Démarrer la surveillance
+        console.log("Démarrage de la surveillance des tokens Solana...");
+        io.emit('systemLog', { type: 'info', message: 'Démarrage de la surveillance des nouveaux tokens...' });
+        solanaWatcher.startWatching();
+        
+        io.emit('systemLog', { type: 'success', message: 'Système de surveillance démarré avec succès' });
+      } catch (error) {
+        console.error("Erreur lors de l'initialisation:", error);
+        io.emit('systemLog', { type: 'error', message: "Erreur lors de l'initialisation: " + error.message });
+      }
+    });
+
+    // Gestion de l'arrêt propre
+    process.on('SIGINT', async () => {
+      console.log("Arrêt du serveur...");
+      io.emit('systemLog', { type: 'warning', message: 'Arrêt du serveur en cours...' });
+      solanaWatcher.stopWatching();
+      await mongoose.connection.close();
+      console.log("Connexions fermées. Au revoir!");
+      process.exit(0);
+    });
+
+    // Démarrer le serveur
+    httpServer.listen(PORT, () => {
+      console.log(`Serveur démarré sur le port ${PORT}`);
+    });
+  };
+
+  // Démarrer le serveur en développement
+  startServer();
+} 

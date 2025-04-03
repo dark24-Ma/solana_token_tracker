@@ -80,25 +80,16 @@ class SolanaWatcher {
 
   async checkSolscanNewTokens() {
     try {
+      // Ne pas vérifier sur Solscan si on est en mode cooldown
+      if (this.solanaService.solscanCooldownActive) {
+        console.log('Solscan est en mode cooldown, vérification ignorée');
+        return;
+      }
+      
       console.log('Vérification des nouveaux tokens sur Solscan...');
       
       // Récupérer les tokens récemment créés depuis l'API Solscan
-      const response = await axios.get('https://api.solscan.io/token/list', {
-        params: {
-          sortBy: 'createTime',
-          direction: 'desc',
-          limit: 20,
-          offset: 0
-        },
-        headers: {
-          'User-Agent': this.userAgent,
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Referer': 'https://solscan.io/tokens',
-          'Origin': 'https://solscan.io'
-        },
-        timeout: 15000
-      });
+      const response = await this.solanaService.enqueueApiRequest('https://api.solscan.io/token/list?sortBy=createTime&direction=desc&limit=20&offset=0');
 
       if (!response.data || !response.data.data || !Array.isArray(response.data.data)) {
         console.log('Réponse invalide de Solscan:', response.data);
@@ -128,7 +119,17 @@ class SolanaWatcher {
       this.lastSolscanTimestamp = Date.now();
     } catch (error) {
       console.error('Erreur lors de la vérification sur Solscan:', error.message);
-      // Continuer malgré l'erreur - nous réessaierons lors de la prochaine itération
+      
+      // Si l'erreur est un 403 ou 429, informer les clients
+      if (error.response && (error.response.status === 403 || error.response.status === 429)) {
+        this.io.emit('systemLog', {
+          type: 'warning',
+          message: `Accès temporairement limité à Solscan (${error.response.status}). Utilisation de sources alternatives.`
+        });
+        
+        // Nous continuerons à surveiller via l'API Solana même si Solscan est indisponible
+        console.log('Continuons la surveillance via l\'API Solana');
+      }
     }
   }
 
@@ -267,6 +268,63 @@ class SolanaWatcher {
       }
     } catch (error) {
       console.error(`Erreur lors du traitement du token ${tokenInfo.mint}:`, error);
+    }
+  }
+
+  // Ajouter une méthode pour permettre la vérification manuelle par les utilisateurs
+  async checkManually() {
+    console.log('Vérification manuelle des nouveaux tokens demandée...');
+    
+    try {
+      // Essayer d'abord via Solscan si pas en cooldown
+      if (!this.solanaService.solscanCooldownActive) {
+        try {
+          await this.checkSolscanNewTokens();
+          // Si la vérification Solscan a réussi, informer les clients
+          this.io.emit('systemLog', {
+            type: 'success',
+            message: 'Vérification manuelle Solscan terminée avec succès'
+          });
+        } catch (solscanError) {
+          console.error('Échec de la vérification Solscan manuelle:', solscanError.message);
+          
+          // Si l'erreur est un 403 ou 429, tenter via l'API Solana
+          if (solscanError.response && (solscanError.response.status === 403 || solscanError.response.status === 429)) {
+            this.io.emit('systemLog', {
+              type: 'warning',
+              message: `Accès limité à Solscan (${solscanError.response.status}). Utilisation de l'API Solana.`
+            });
+            
+            await this.checkNewTokens();
+          } else {
+            throw solscanError;
+          }
+        }
+      } else {
+        // Si Solscan est en cooldown, utiliser directement l'API Solana
+        this.io.emit('systemLog', {
+          type: 'info',
+          message: 'Solscan est en mode cooldown. Vérification via l\'API Solana uniquement.'
+        });
+        
+        await this.checkNewTokens();
+      }
+      
+      this.io.emit('systemLog', {
+        type: 'success',
+        message: 'Vérification manuelle des tokens terminée'
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la vérification manuelle:', error.message);
+      
+      this.io.emit('systemLog', {
+        type: 'error',
+        message: `Erreur lors de la vérification manuelle: ${error.message}`
+      });
+      
+      return false;
     }
   }
 }

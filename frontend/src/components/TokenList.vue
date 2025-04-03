@@ -40,20 +40,20 @@
       <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Chargement...</span>
       </div>
-      <p class="mt-3">Chargement des tokens...</p>
+      <p class="mt-3 text-secondary">Chargement des tokens...</p>
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="alert alert-danger" role="alert">
+    <div v-else-if="error" class="alert alert-danger border-0" role="alert" style="background-color: rgba(220, 53, 69, 0.1); color: var(--danger-color);">
       <i class="fas fa-exclamation-triangle me-2"></i>
       {{ error }}
     </div>
 
     <!-- Empty state -->
     <div v-else-if="filteredTokens.length === 0" class="text-center p-5">
-      <i class="fas fa-coins fa-3x mb-3 text-muted"></i>
-      <h5>Aucun token trouvé</h5>
-      <p class="text-muted">Les nouveaux tokens apparaîtront ici dès qu'ils seront détectés.</p>
+      <i class="fas fa-coins fa-3x mb-3 text-primary"></i>
+      <h5 class="text-bright">Aucun token trouvé</h5>
+      <p class="text-secondary">Les nouveaux tokens apparaîtront ici dès qu'ils seront détectés.</p>
     </div>
 
     <!-- Tokens grid layout -->
@@ -89,7 +89,7 @@
                 <span class="log-type" :class="'log-' + log.type">{{ log.type.toUpperCase() }}</span>
                 <span class="log-message">{{ log.message }}</span>
               </div>
-              <div v-if="logs.length === 0" class="text-muted text-center py-3">
+              <div v-if="logs.length === 0" class="text-secondary text-center py-3">
                 Aucun événement enregistré pour le moment
               </div>
             </div>
@@ -116,7 +116,7 @@
                       {{ token.name }}
                       <span v-if="isNewToken(token)" class="badge bg-success ms-2">Nouveau</span>
                     </h5>
-                    <div class="token-symbol text-muted">{{ token.symbol }}</div>
+                    <div class="token-symbol">{{ token.symbol }}</div>
                   </div>
                 </div>
                 
@@ -159,7 +159,7 @@
                 
                 <div class="token-actions mt-3">
                   <div class="d-flex justify-content-between align-items-center">
-                    <small class="text-muted">
+                    <small class="text-secondary">
                       <i class="far fa-clock me-1"></i> {{ formatDate(token.createdAt) }}
                     </small>
                     <div>
@@ -629,7 +629,7 @@ export default {
 .token-list-title {
   margin-bottom: 0.5rem;
   font-weight: 600;
-  color: #343a40;
+  color: var(--text-bright);
   font-size: 1.75rem;
 }
 
@@ -638,12 +638,19 @@ export default {
 }
 
 .token-card {
-  transition: transform 0.2s ease-in-out;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  height: 100%;
+}
+
+.hover-shadow {
+  border: 1px solid rgba(153, 69, 255, 0.15);
+  background: linear-gradient(to bottom, var(--bg-card), rgba(10, 10, 10, 0.95));
 }
 
 .hover-shadow:hover {
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(153, 69, 255, 0.15), 0 6px 10px rgba(0, 0, 0, 0.3) !important;
+  transform: translateY(-5px);
+  border: 1px solid rgba(153, 69, 255, 0.3);
 }
 
 .token-logo-wrapper {
@@ -651,11 +658,12 @@ export default {
   height: 48px;
   border-radius: 50%;
   overflow: hidden;
-  background-color: #f8f9fa;
+  background-color: #000;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 15px rgba(153, 69, 255, 0.3);
+  border: 1px solid rgba(153, 69, 255, 0.2);
 }
 
 .token-logo {
@@ -668,22 +676,34 @@ export default {
   font-weight: 600;
   font-size: 1.1rem;
   max-width: 160px;
+  color: var(--text-bright);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
 .token-symbol {
   font-size: 0.875rem;
   font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .detail-label {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #6c757d;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
 }
 
 .detail-value {
   font-size: 0.875rem;
   font-weight: 600;
+  color: var(--text-primary);
+}
+
+.detail-value.text-success {
+  color: var(--success-color) !important;
+  text-shadow: 0 0 8px rgba(20, 241, 149, 0.3);
 }
 
 .badge {
@@ -696,14 +716,148 @@ export default {
   margin-top: 2rem;
 }
 
-.pagination .page-link {
-  color: #3949ab;
-  padding: 0.5rem 0.75rem;
+.page-link {
+  color: var(--primary-color);
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
 }
 
-.pagination .page-item.active .page-link {
-  background-color: #3949ab;
-  border-color: #3949ab;
+.page-link:hover {
+  color: var(--primary-light);
+  background-color: var(--bg-hover);
+  border-color: var(--border-color);
+}
+
+.page-item.active .page-link {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--text-bright);
+}
+
+.page-item.disabled .page-link {
+  color: var(--text-muted);
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+.logs-container {
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  background-color: var(--bg-dark);
+}
+
+.log-item {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid rgba(153, 69, 255, 0.1);
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.log-item:hover {
+  background-color: rgba(153, 69, 255, 0.05);
+}
+
+.log-time {
+  color: var(--text-muted);
+  margin-right: 0.5rem;
+}
+
+.log-type {
+  display: inline-block;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  margin-right: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.log-info {
+  background-color: rgba(13, 202, 240, 0.1);
+}
+
+.log-success {
+  background-color: rgba(25, 135, 84, 0.1);
+}
+
+.log-error {
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+.log-warning {
+  background-color: rgba(255, 193, 7, 0.1);
+}
+
+.log-info .log-type {
+  color: var(--info-color);
+}
+
+.log-success .log-type {
+  color: var(--success-color);
+}
+
+.log-error .log-type {
+  color: var(--danger-color);
+}
+
+.log-warning .log-type {
+  color: var(--warning-color);
+}
+
+.log-message {
+  word-break: break-word;
+  color: var(--text-secondary);
+}
+
+/* Styles pour les tableaux dans les logs */
+.log-message table {
+  margin-top: 0.5rem;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.log-message table th,
+.log-message table td {
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  border: 1px solid var(--border-color);
+}
+
+.log-message table th {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.admin-panel .card-header {
+  background-color: var(--bg-card);
+  color: var(--text-bright);
+}
+
+.admin-panel .card-header h5 {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-bright);
+}
+
+.btn-outline-primary {
+  border-width: 1.5px;
+  letter-spacing: 0.5px;
+  padding: 0.4rem 0.7rem;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.btn-outline-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 15px rgba(153, 69, 255, 0.4);
+}
+
+.btn-sm {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.7rem;
 }
 
 @media (max-width: 767.98px) {
@@ -712,64 +866,10 @@ export default {
     align-items: stretch !important;
   }
   
-  .search-container {
-    margin-bottom: 0.75rem;
+  .search-container, .sort-container {
+    width: 100%;
     margin-right: 0 !important;
+    margin-bottom: 0.5rem;
   }
-  
-  .token-list-title {
-    font-size: 1.5rem;
-    text-align: center;
-  }
-  
-  .token-name {
-    max-width: 100%;
-  }
-}
-
-/* Logs styling */
-.logs-container {
-  max-height: 250px;
-  min-height: 100px;
-  overflow-y: auto;
-  font-family: monospace;
-  font-size: 0.85rem;
-  background-color: #212529;
-  color: #f8f9fa;
-  padding: 10px;
-}
-
-.log-item {
-  padding: 4px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.log-time {
-  color: #adb5bd;
-  margin-right: 8px;
-}
-
-.log-type {
-  display: inline-block;
-  width: 70px;
-  margin-right: 8px;
-  font-weight: bold;
-  text-align: center;
-}
-
-.log-info {
-  color: #0dcaf0;
-}
-
-.log-success {
-  color: #4caf50;
-}
-
-.log-warning {
-  color: #ffc107;
-}
-
-.log-error {
-  color: #f44336;
 }
 </style> 

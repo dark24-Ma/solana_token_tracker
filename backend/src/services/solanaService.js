@@ -10,7 +10,7 @@ class SolanaService {
     this.isProcessingQueue = false;
     this.apiCallsCount = 0;
     this.lastResetTime = Date.now();
-    this.MAX_CALLS_PER_MINUTE = 20; // Limite pour éviter les erreurs 429
+    this.MAX_CALLS_PER_MINUTE = 10; // Réduit pour éviter les erreurs 403/429
     
     // Sources d'images supplémentaires pour les tokens Solana
     this.tokenImageSources = [
@@ -25,6 +25,30 @@ class SolanaService {
       'https://rpc.ankr.com/solana'
     ];
     this.currentEndpointIndex = 0;
+    
+    // Rotation de User-Agents pour éviter les blocages
+    this.userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/118.0.2557.58 Mobile/15E148 Safari/604.1'
+    ];
+    
+    // Index courant pour la rotation des User-Agents
+    this.currentUserAgentIndex = 0;
+    
+    // Dernière utilisation de Solscan
+    this.lastSolscanRequestTime = 0;
+    this.consecutiveSolscanErrors = 0;
+    this.solscanCooldownActive = false;
+  }
+  
+  // Obtenir le prochain User-Agent dans la rotation
+  getNextUserAgent() {
+    const userAgent = this.userAgents[this.currentUserAgentIndex];
+    this.currentUserAgentIndex = (this.currentUserAgentIndex + 1) % this.userAgents.length;
+    return userAgent;
   }
 
   // Ajouter un délai entre les requêtes
@@ -60,7 +84,7 @@ class SolanaService {
     
     // Vérifier si nous avons atteint la limite d'appels
     if (this.apiCallsCount >= this.MAX_CALLS_PER_MINUTE) {
-      const waitTime = 60000 - (now - this.lastResetTime) + 2000; // Ajouter 2 secondes de marge
+      const waitTime = 60000 - (now - this.lastResetTime) + 5000; // Ajouter 5 secondes de marge
       console.log(`Limite d'API atteinte, attente de ${waitTime}ms avant la prochaine requête`);
       await this.sleep(waitTime);
       this.apiCallsCount = 0;
@@ -71,26 +95,99 @@ class SolanaService {
     const { url, resolve, reject, retries } = request;
     
     try {
-      // Attendre un délai aléatoire entre 800 et 1500ms pour éviter les rafales de requêtes
-      await this.sleep(800 + Math.random() * 700);
+      // Gérer spécifiquement les requêtes Solscan pour éviter les blocages
+      const isSolscanRequest = url.includes('solscan.io');
+      
+      if (isSolscanRequest) {
+        // Vérifier si nous sommes en mode cooldown pour Solscan
+        if (this.solscanCooldownActive) {
+          const cooldownTime = 3600000; // 1 heure de cooldown
+          if (now - this.lastSolscanRequestTime < cooldownTime) {
+            throw new Error('Solscan est temporairement indisponible (en cooldown)');
+          } else {
+            this.solscanCooldownActive = false;
+            this.consecutiveSolscanErrors = 0;
+          }
+        }
+        
+        // S'assurer d'avoir au moins 3 secondes entre les requêtes Solscan
+        const timeSinceLastSolscanRequest = now - this.lastSolscanRequestTime;
+        if (timeSinceLastSolscanRequest < 3000) {
+          await this.sleep(3000 - timeSinceLastSolscanRequest);
+        }
+        
+        this.lastSolscanRequestTime = Date.now();
+      } else {
+        // Attendre un délai aléatoire entre 800 et 1500ms pour éviter les rafales de requêtes
+        await this.sleep(800 + Math.random() * 700);
+      }
       
       this.apiCallsCount++;
+      
+      // Préparer les entêtes avec rotation des User-Agents
+      const userAgent = this.getNextUserAgent();
+      
+      const headers = {
+        'User-Agent': userAgent,
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      };
+      
+      // Ajouter des entêtes spécifiques pour Solscan
+      if (isSolscanRequest) {
+        headers['Referer'] = 'https://solscan.io/';
+        headers['Origin'] = 'https://solscan.io';
+        // Ajouter un paramètre aléatoire pour éviter le cache
+        const randomParam = `_t=${Date.now()}`;
+        url = url.includes('?') ? `${url}&${randomParam}` : `${url}?${randomParam}`;
+      }
+      
       const response = await axios.get(url, {
         timeout: 15000, // Augmenter le timeout
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Referer': 'https://solscan.io/',
-          'Origin': 'https://solscan.io'
-        }
+        headers
       });
+      
+      // Réinitialiser le compteur d'erreurs Solscan en cas de succès
+      if (isSolscanRequest) {
+        this.consecutiveSolscanErrors = 0;
+      }
+      
       resolve(response);
     } catch (error) {
       console.error(`Erreur API: ${url} - ${error.message}`);
       
+      const statusCode = error.response?.status;
+      const isSolscanRequest = url.includes('solscan.io');
+      
+      // Gestion spécifique des erreurs Solscan
+      if (isSolscanRequest) {
+        this.consecutiveSolscanErrors++;
+        console.log(`Erreurs consécutives Solscan: ${this.consecutiveSolscanErrors}`);
+        
+        // Si trop d'erreurs 403/429, mettre Solscan en "cooldown"
+        if ((statusCode === 403 || statusCode === 429) && this.consecutiveSolscanErrors >= 3) {
+          console.log("Trop d'erreurs Solscan - activation du mode cooldown pour 1 heure");
+          this.solscanCooldownActive = true;
+          this.lastSolscanRequestTime = Date.now();
+          
+          // Utiliser une API alternative ou sauter cette étape
+          reject(new Error('Solscan temporairement indisponible - trop de requêtes'));
+          this.isProcessingQueue = false;
+          setTimeout(() => this.processQueue(), 500);
+          return;
+        }
+      }
+      
       if (retries > 0) {
-        console.log(`Nouvelle tentative (${retries} restantes) pour: ${url}`);
+        // Attendre plus longtemps entre les tentatives en cas d'erreur
+        const backoffTime = 2000 * (3 - retries + 1);
+        console.log(`Nouvelle tentative dans ${backoffTime}ms (${retries} restantes) pour: ${url}`);
+        
+        // Attendre avant de réessayer
+        await this.sleep(backoffTime);
+        
         this.requestQueue.push({
           url,
           resolve,
@@ -554,6 +651,69 @@ class SolanaService {
       console.error('Erreur lors de la mise à jour du prix:', error);
       throw error;
     }
+  }
+
+  // Essayer de récupérer les données sans utiliser Solscan
+  async getMetadataWithoutSolscan(tokenAddress) {
+    console.log("Contournement de Solscan pour récupérer les métadonnées...");
+    
+    // Essayer d'abord Jupiter qui a beaucoup de données sur les tokens
+    try {
+      const jupiterResponse = await axios.get(`https://token.jup.ag/all`, { 
+        timeout: 5000,
+        headers: {
+          'User-Agent': this.getNextUserAgent()
+        }
+      });
+      const jupiterTokens = jupiterResponse.data;
+      
+      const token = jupiterTokens.find(t => t.address === tokenAddress);
+      if (token) {
+        return {
+          name: token.name,
+          symbol: token.symbol,
+          logoURI: token.logoURI,
+          source: 'Jupiter'
+        };
+      }
+    } catch (jupiterError) {
+      console.log('Impossible de récupérer les métadonnées depuis Jupiter:', jupiterError.message);
+    }
+    
+    // Essayer avec Solana Token List
+    try {
+      const tokenListResponse = await axios.get(
+        'https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json',
+        { 
+          timeout: 5000,
+          headers: {
+            'User-Agent': this.getNextUserAgent()
+          }
+        }
+      );
+      
+      if (tokenListResponse.data && tokenListResponse.data.tokens) {
+        const token = tokenListResponse.data.tokens.find(t => t.address === tokenAddress);
+        if (token) {
+          return {
+            name: token.name,
+            symbol: token.symbol,
+            logoURI: token.logoURI,
+            source: 'Solana Token List'
+          };
+        }
+      }
+    } catch (tokenListError) {
+      console.log('Impossible de récupérer les métadonnées depuis Solana Token List:', tokenListError.message);
+    }
+    
+    // Si toutes les sources échouent, créer des métadonnées génériques
+    return {
+      name: `Token ${tokenAddress.slice(0, 6)}...${tokenAddress.slice(-4)}`,
+      symbol: 'UNKNOWN',
+      logoURI: null,
+      source: 'Fallback'
+    };
   }
 }
 

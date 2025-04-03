@@ -1,27 +1,31 @@
 {
-  "name": "backend",
+  "name": "solana-token-tracker-api",
   "version": "1.0.0",
+  "description": "API pour le suivi des nouveaux tokens Solana",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "vercel-build": "echo 'Build step completed'"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
-    "@solana/spl-token": "^0.4.13",
-    "@solana/web3.js": "^1.87.6",
-    "axios": "^1.8.4",
+    "@solana/spl-token": "^0.3.8",
+    "@solana/web3.js": "^1.77.3",
+    "axios": "^1.4.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "mongoose": "^8.0.3",
-    "socket.io": "^4.8.1"
+    "mongoose": "^7.4.1",
+    "socket.io": "^4.7.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.0.1"
   }
 }

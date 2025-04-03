@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "name": "solana-token-tracker-api",
+  "builds": [
+    {
+      "src": "src/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/index.js"
+    }
+  ],
+  "env": {
+    "MONGODB_URI": "@mongodb_uri",
+    "SOLANA_RPC_URL": "@solana_rpc_url"
+  },
+  "regions": ["cdg1"]
+} 
