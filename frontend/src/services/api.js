@@ -1,19 +1,24 @@
 import axios from 'axios';
-import socketIOClient from 'socket.io-client';
+import io from 'socket.io-client';
 
-// Configuration des URLs d'API basée sur l'environnement
-// En production (Vercel), nous utilisons l'URL de l'API déployée sur Vercel
-// En développement, nous utilisons localhost
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://solana-token-tracker-api.vercel.app/api'
-  : 'http://localhost:3000/api';
+// Configuration des URLs d'API et de Socket
+// Pour le déploiement:
+// 1. Ces URLs sont configurées pour utiliser l'adresse IP 185.97.146.99
+// 2. Le backend fonctionne sur le port 6607
+// 3. Le frontend fonctionne sur le port 6608
 
+// URL de base pour l'API - Environnement de production vs développement
+const API_BASE_URL = process.env.NODE_ENV === 'production'
+  ? 'http://185.97.146.99:6607/api'  // URL de production
+  : 'http://localhost:6607/api';     // URL de développement
+
+// URL pour les connexions Socket.io
 const SOCKET_URL = process.env.NODE_ENV === 'production'
-  ? 'https://solana-token-tracker-api.vercel.app'
-  : 'http://localhost:3000';
+  ? 'http://185.97.146.99:6607'      // URL de production
+  : 'http://localhost:6607';         // URL de développement
 
-// Création d'une instance axios avec l'URL de base et les configurations
-const api = axios.create({
+// Configuration d'Axios avec l'URL de base
+const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
   headers: {
@@ -22,138 +27,62 @@ const api = axios.create({
   }
 });
 
-// Création d'une instance socket.io
-let socket = null;
+// Création de la connexion socket
+const socket = io(SOCKET_URL, {
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+  reconnectionAttempts: 10,
+  reconnectionDelay: 1000
+});
 
-// Fonction pour initialiser la connexion socket
-const initSocket = () => {
-  if (!socket) {
-    // Les options correspondent à celles du serveur
-    socket = socketIOClient(SOCKET_URL, {
-      path: process.env.NODE_ENV === 'production' ? '/api/socket' : '/socket.io',
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000
-    });
+// Événements socket
+socket.on('connect', () => {
+  console.log('Connecté au serveur Socket.IO');
+});
 
-    // Connexion
-    socket.on('connect', () => {
-      console.log('Connecté au serveur via socket.io');
-    });
+socket.on('disconnect', () => {
+  console.log('Déconnecté du serveur Socket.IO');
+});
 
-    // Erreur de connexion
-    socket.on('connect_error', (error) => {
-      console.error('Erreur de connexion socket.io:', error);
-    });
+socket.on('connect_error', (error) => {
+  console.error('Erreur de connexion Socket.IO:', error);
+});
 
-    // Reconnexion
-    socket.on('reconnect', (attemptNumber) => {
-      console.log(`Reconnecté au serveur après ${attemptNumber} tentatives`);
-    });
+// API pour les tokens
+const tokenApi = {
+  /**
+   * Récupère tous les tokens
+   * @returns {Promise} Une promesse avec les données des tokens
+   */
+  getTokens() {
+    return apiClient.get('/tokens');
+  },
 
-    // Déconnexion
-    socket.on('disconnect', (reason) => {
-      console.log('Déconnecté du serveur:', reason);
-    });
-  }
-  return socket;
-};
-
-// Fonction pour récupérer la liste des tokens
-const getTokens = async () => {
-  try {
-    const response = await api.get('/tokens');
-    return response.data;
-  } catch (error) {
-    console.error('Erreur lors de la récupération des tokens:', error);
-    throw error;
+  /**
+   * Récupère un token par son ID
+   * @param {string} id - L'ID du token
+   * @returns {Promise} Une promesse avec les données du token
+   */
+  getToken(id) {
+    return apiClient.get(`/tokens/${id}`);
   }
 };
 
-// Fonction pour récupérer les détails d'un token par son adresse
-const getTokenByAddress = async (address) => {
-  try {
-    const response = await api.get(`/tokens/${address}`);
-    return response.data;
-  } catch (error) {
-    console.error(`Erreur lors de la récupération du token ${address}:`, error);
-    throw error;
+// API pour la santé du serveur
+const healthApi = {
+  /**
+   * Vérifie l'état du serveur
+   * @returns {Promise} Une promesse avec les informations sur l'état du serveur
+   */
+  check() {
+    return apiClient.get('/health');
   }
 };
 
-// Fonction pour vérifier manuellement les nouveaux tokens
-const checkNewTokens = () => {
-  if (!socket) {
-    initSocket();
-  }
-  socket.emit('checkSolscan');
-};
-
-// Fonction pour obtenir le statut du système
-const getSystemStatus = () => {
-  if (!socket) {
-    initSocket();
-  }
-  socket.emit('getSystemStatus');
-};
-
-// Fonction pour s'abonner aux événements de nouveaux tokens
-const subscribeToNewTokens = (callback) => {
-  if (!socket) {
-    initSocket();
-  }
-  socket.on('newToken', callback);
-  return () => socket.off('newToken', callback);
-};
-
-// Fonction pour s'abonner aux logs système
-const subscribeToSystemLogs = (callback) => {
-  if (!socket) {
-    initSocket();
-  }
-  socket.on('systemLog', callback);
-  return () => socket.off('systemLog', callback);
-};
-
-// Fonction pour s'abonner au nombre de clients connectés
-const subscribeToClientCount = (callback) => {
-  if (!socket) {
-    initSocket();
-  }
-  socket.on('clientCount', callback);
-  return () => socket.off('clientCount', callback);
-};
-
-// Fonction pour s'abonner au statut du système
-const subscribeToSystemStatus = (callback) => {
-  if (!socket) {
-    initSocket();
-  }
-  socket.on('systemStatus', callback);
-  return () => socket.off('systemStatus', callback);
-};
-
-// Fonction pour se déconnecter proprement
-const disconnect = () => {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
-  }
-};
-
-// Exporter les fonctions publiques
-export {
-  initSocket,
-  getTokens,
-  getTokenByAddress,
-  checkNewTokens,
-  getSystemStatus,
-  subscribeToNewTokens,
-  subscribeToSystemLogs,
-  subscribeToClientCount,
-  subscribeToSystemStatus,
-  disconnect
+// Exporter les services API et socket
+export { 
+  apiClient,
+  socket,
+  tokenApi,
+  healthApi
 }; 
