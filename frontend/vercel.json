@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "VUE_APP_API_URL": "http://185.97.146.99:6607/api",
+    "VUE_APP_SOCKET_URL": "http://185.97.146.99:6607"
+  }
+} 

@@ -18,14 +18,32 @@ module.exports = (req, res) => {
     path: '/api/socket',
     addTrailingSlash: false,
     cors: {
-      origin: [
-        "http://localhost:8080", 
-        "http://127.0.0.1:8080",
-        "https://solana-snipper-bot.vercel.app",
-        "https://solana-token-tracker.vercel.app"
-      ],
-      methods: ["GET", "POST"],
-      allowedHeaders: ["Content-Type"],
+      origin: function(origin, callback) {
+        // Autoriser les requêtes sans origine
+        if (!origin) return callback(null, true);
+        
+        const allowedOrigins = [
+          "http://localhost:8080", 
+          "http://127.0.0.1:8080",
+          "https://solana-snipper-bot.vercel.app",
+          "https://solana-token-tracker.vercel.app",
+          "https://solana-token-tracker-bb9j.vercel.app"
+        ];
+        
+        // Vérifier si l'origine est autorisée
+        if (allowedOrigins.indexOf(origin) === -1) {
+          console.log(`Origine non autorisée pour socket.io: ${origin}`);
+          // Autoriser quand même en développement
+          if (process.env.NODE_ENV !== 'production') {
+            return callback(null, true);
+          }
+          
+          return callback(new Error('CORS non autorisé pour socket.io'), false);
+        }
+        return callback(null, true);
+      },
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
       credentials: true
     }
   });

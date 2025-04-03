@@ -3,19 +3,23 @@ import io from 'socket.io-client';
 
 // Configuration des URLs d'API et de Socket
 // Pour le déploiement:
-// 1. Ces URLs sont configurées pour utiliser l'adresse IP 185.97.146.99
-// 2. Le backend fonctionne sur le port 6607
-// 3. Le frontend fonctionne sur le port 6608
+// 1. Le backend est sur le VPS à l'adresse 185.97.146.99 port 6607
+// 2. Le frontend est déployé sur Vercel à l'adresse solana-token-tracker-bb9j.vercel.app
 
 // URL de base pour l'API - Environnement de production vs développement
-const API_BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'http://185.97.146.99:6607/api'  // URL de production
-  : 'http://localhost:6607/api';     // URL de développement
+const API_BASE_URL = process.env.VUE_APP_API_URL || 
+  (process.env.NODE_ENV === 'production'
+    ? 'http://185.97.146.99:6607/api'  // URL de production sur le VPS
+    : 'http://localhost:6607/api');    // URL de développement
 
 // URL pour les connexions Socket.io
-const SOCKET_URL = process.env.NODE_ENV === 'production'
-  ? 'http://185.97.146.99:6607'      // URL de production
-  : 'http://localhost:6607';         // URL de développement
+const SOCKET_URL = process.env.VUE_APP_SOCKET_URL || 
+  (process.env.NODE_ENV === 'production'
+    ? 'http://185.97.146.99:6607'      // URL de production sur le VPS
+    : 'http://localhost:6607');        // URL de développement
+
+console.log('API_BASE_URL:', API_BASE_URL);
+console.log('SOCKET_URL:', SOCKET_URL);
 
 // Configuration d'Axios avec l'URL de base
 const apiClient = axios.create({
@@ -24,7 +28,8 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
-  }
+  },
+  withCredentials: true
 });
 
 // Création de la connexion socket
@@ -32,7 +37,8 @@ const socket = io(SOCKET_URL, {
   transports: ['websocket', 'polling'],
   reconnection: true,
   reconnectionAttempts: 10,
-  reconnectionDelay: 1000
+  reconnectionDelay: 1000,
+  withCredentials: true
 });
 
 // Événements socket
@@ -45,7 +51,7 @@ socket.on('disconnect', () => {
 });
 
 socket.on('connect_error', (error) => {
-  console.error('Erreur de connexion Socket.IO:', error);
+  console.error('Erreur de connexion socket:', error);
 });
 
 // API pour les tokens

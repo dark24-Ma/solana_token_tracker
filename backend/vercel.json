@@ -10,12 +10,18 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "src/index.js"
+      "dest": "src/index.js",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept"
+      }
     }
   ],
   "env": {
     "MONGODB_URI": "@mongodb_uri",
-    "SOLANA_RPC_URL": "@solana_rpc_url"
+    "SOLANA_RPC_URL": "@solana_rpc_url",
+    "ALLOWED_ORIGINS": "https://solana-token-tracker-bb9j.vercel.app,http://localhost:8080,http://127.0.0.1:8080,https://solana-snipper-bot.vercel.app,https://solana-token-tracker.vercel.app"
   },
   "regions": ["cdg1"]
 } 

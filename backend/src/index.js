@@ -30,7 +30,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS ?
     "http://localhost:8080",
     "http://127.0.0.1:8080",
     "https://solana-snipper-bot.vercel.app",
-    "https://solana-token-tracker.vercel.app"
+    "https://solana-token-tracker.vercel.app",
+    "https://solana-token-tracker-bb9j.vercel.app"
   ];
 
 const io = new Server(httpServer, {
@@ -47,9 +48,39 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
+  origin: function(origin, callback) {
+    // Autoriser les requêtes sans origine (comme les appels d'API mobiles ou Postman)
+    if (!origin) return callback(null, true);
+    
+    // Vérifier si l'origine est autorisée
+    if (allowedOrigins.indexOf(origin) === -1) {
+      console.log(`Origine non autorisée: ${origin}`);
+      // Autoriser quand même en développement
+      if (process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      
+      return callback(new Error('CORS non autorisé'), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
 }));
+
+// Middleware supplémentaire pour les en-têtes CORS
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  next();
+});
+
 app.use(express.json());
 
 // Nombre de clients connectés
