@@ -255,13 +255,18 @@ class TokenController {
         });
       }
       
-      // Filtrer pour n'avoir que les memecoins et les tokens avec liquidité
-      const memecoins = await Promise.all(
-        recentTokens.map(async token => {
+      // Pour le suivi des opérations
+      const newTokensSaved = []; // Tokens nouvellement créés
+      const tokensUpdated = [];  // Tokens mis à jour
+      const processedTokens = []; // Tous les tokens traités pour l'affichage
+      
+      // Traiter chaque token
+      for (const token of recentTokens) {
+        try {
           // Vérifier que les propriétés essentielles existent
           if (!token.address || !token.mint) {
             console.log("Token sans adresse ignoré");
-            return null;
+            continue;
           }
           
           // Utiliser une valeur par défaut pour les propriétés manquantes
@@ -294,67 +299,164 @@ class TokenController {
           
           // Filtrer les tokens non-memecoins avec faible liquidité
           if (!isMemecoin && token.liquidity < 1000) {
-            return null;
+            continue;
           }
           
-          // Vérifier s'il est déjà dans notre base de données
-          const existingToken = await Token.findOne({ mint: token.mint });
-          
-          // Préparer des valeurs formatées pour l'affichage, avec gestion des valeurs manquantes
+          // Préparer des valeurs formatées avec gestion des valeurs manquantes
           const priceUsd = token.priceUsd || 0;
           const liquidity = token.liquidity || 0;
           const volume24h = token.volume24h || 0;
           const priceChange24h = token.priceChange24h || 0;
           
+          // Vérifier si le token existe déjà dans la base de données
+          let existingToken = await Token.findOne({ mint: token.mint });
+          let isNewToken = false;
+          
+          // Si le token n'existe pas, le créer
+          if (!existingToken) {
+            try {
+              // Préparation des données pour un nouveau token
+              const newToken = new Token({
+                mint: token.mint,
+                address: token.address,
+                name: tokenName,
+                symbol: tokenSymbol,
+                priceUsd: priceUsd,
+                price: priceUsd,
+                liquidity: liquidity,
+                volume24h: volume24h,
+                priceChange24h: priceChange24h,
+                isMemecoin: isMemecoin,
+                tokenType: isMemecoin ? 'memecoin' : 'standard',
+                website: token.website || null,
+                twitter: token.twitter || null,
+                logoURI: token.logoURI || token.icon || null,
+                headerURI: token.headerURI || token.header || null,
+                pairAddress: token.pairAddress || null,
+                exchange: token.exchange || null,
+                fdv: token.fdv || 0,
+                createdAt: token.createdAt || new Date(),
+                lastUpdated: new Date()
+              });
+              
+              // Sauvegarder le nouveau token
+              await newToken.save();
+              newTokensSaved.push(token.mint);
+              existingToken = newToken; // Pour l'utiliser dans la réponse
+              isNewToken = true;
+              
+              console.log(`Nouveau token enregistré: ${tokenName} (${tokenSymbol})`);
+            } catch (saveError) {
+              // Si erreur lors de la création, ignorer simplement ce token
+              console.error(`Erreur lors de l'enregistrement du token ${tokenName}:`, saveError.message);
+              continue;
+            }
+          } else {
+            // Token existant - Mettre à jour uniquement les données de marché qui changent souvent
+            try {
+              // Ne mettre à jour que les données importantes comme prix et liquidité
+              const updates = {
+                priceUsd: priceUsd,
+                price: priceUsd,
+                liquidity: liquidity,
+                volume24h: volume24h,
+                priceChange24h: priceChange24h,
+                lastUpdated: new Date()
+              };
+              
+              // Si les propriétés importantes manquent, les mettre à jour aussi
+              if (!existingToken.logoURI && (token.logoURI || token.icon)) {
+                updates.logoURI = token.logoURI || token.icon;
+              }
+              
+              if (!existingToken.website && token.website) {
+                updates.website = token.website;
+              }
+              
+              if (!existingToken.twitter && token.twitter) {
+                updates.twitter = token.twitter;
+              }
+              
+              // Mise à jour avec findOneAndUpdate pour éviter les conflits
+              const updatedToken = await Token.findOneAndUpdate(
+                { mint: token.mint },
+                { $set: updates },
+                { new: true, runValidators: true }
+              );
+              
+              tokensUpdated.push(token.mint);
+              existingToken = updatedToken; // Pour l'utiliser dans la réponse
+            } catch (updateError) {
+              console.error(`Erreur lors de la mise à jour du token ${tokenName}:`, updateError.message);
+              // Continuer avec la version existante pour l'affichage
+            }
+          }
+          
+          // Calculer la couleur pour l'affichage du changement de prix
           const priceChangeColor = priceChange24h > 0 ? 'green' : 
                                   priceChange24h < 0 ? 'red' : 'gray';
           
-          // Ajouter les nouvelles propriétés du format DexScreener
-          return {
-            ...token,
-            name: tokenName,
-            symbol: tokenSymbol,
-            priceUsd: priceUsd,
-            liquidity: liquidity,
-            volume24h: volume24h,
-            priceChange24h: priceChange24h,
-            isMemecoin,
-            tokenType: isMemecoin ? 'memecoin' : 'standard',
-            isNew: !existingToken,
+          // Ajouter le token avec les données formatées pour l'affichage
+          processedTokens.push({
+            mint: existingToken.mint,
+            address: existingToken.address,
+            name: existingToken.name,
+            symbol: existingToken.symbol,
+            priceUsd: existingToken.priceUsd,
+            liquidity: existingToken.liquidity,
+            volume24h: existingToken.volume24h,
+            priceChange24h: existingToken.priceChange24h,
+            isMemecoin: existingToken.isMemecoin,
+            tokenType: existingToken.tokenType,
+            website: existingToken.website,
+            twitter: existingToken.twitter,
+            logoURI: existingToken.logoURI,
+            headerURI: existingToken.headerURI,
+            pairAddress: existingToken.pairAddress,
+            exchange: existingToken.exchange,
+            fdv: existingToken.fdv,
+            createdAt: existingToken.createdAt,
+            isNew: isNewToken,
             marketData: {
               priceChangeColor,
-              priceFormatted: `$${priceUsd.toFixed(priceUsd < 0.01 ? 8 : 4)}`,
-              liquidityFormatted: `$${liquidity.toLocaleString()}`,
-              volume24hFormatted: `$${volume24h.toLocaleString()}`,
-              priceChange24hFormatted: `${priceChange24h > 0 ? '+' : ''}${priceChange24h.toFixed(2)}%`,
-              createdFormatted: token.createdAt ? new Date(token.createdAt).toLocaleString() : 'Récent'
-            },
-            // Nouvelles propriétés
-            website: token.website || null,
-            twitter: token.twitter || null,
-            logoURI: token.logoURI || token.icon || null,
-            headerURI: token.headerURI || token.header || null
-          };
-        })
-      );
+              priceFormatted: `$${existingToken.priceUsd.toFixed(existingToken.priceUsd < 0.01 ? 8 : 4)}`,
+              liquidityFormatted: `$${(existingToken.liquidity || 0).toLocaleString()}`,
+              volume24hFormatted: `$${(existingToken.volume24h || 0).toLocaleString()}`,
+              priceChange24hFormatted: `${existingToken.priceChange24h > 0 ? '+' : ''}${existingToken.priceChange24h.toFixed(2)}%`,
+              createdFormatted: existingToken.createdAt ? new Date(existingToken.createdAt).toLocaleString() : 'Récent',
+              age: this.getTokenAge(existingToken.createdAt)
+            }
+          });
+          
+        } catch (tokenError) {
+          console.error("Erreur lors du traitement d'un token:", tokenError.message);
+          // Continuer avec le token suivant
+        }
+      }
       
-      // Filtrer les tokens null et trier par date de création (plus récent d'abord)
-      const filteredTokens = memecoins
-        .filter(token => token !== null)
-        .sort((a, b) => {
-          if (!a.createdAt) return 1;
-          if (!b.createdAt) return -1;
-          return b.createdAt - a.createdAt;
-        });
+      // Trier les tokens par date de création (plus récent d'abord)
+      const sortedTokens = processedTokens.sort((a, b) => {
+        if (!a.createdAt) return 1;
+        if (!b.createdAt) return -1;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+      
+      // Statistiques des opérations
+      console.log(`Traitement terminé:
+        - ${newTokensSaved.length} nouveaux tokens enregistrés
+        - ${tokensUpdated.length} tokens mis à jour
+        - ${processedTokens.length} tokens au total`);
       
       res.json({
-        tokens: filteredTokens,
-        count: filteredTokens.length,
-        memecoinCount: filteredTokens.filter(t => t.isMemecoin).length,
-        message: "Tokens récupérés en direct depuis DexScreener"
+        tokens: sortedTokens,
+        count: sortedTokens.length,
+        memecoinCount: sortedTokens.filter(t => t.isMemecoin).length,
+        newCount: newTokensSaved.length,
+        updatedCount: tokensUpdated.length,
+        message: "Tokens récupérés en direct depuis DexScreener et synchronisés avec la base de données"
       });
     } catch (error) {
-      console.error("Erreur:", error);
+      console.error("Erreur générale:", error);
       res.status(500).json({ message: error.message });
     }
   }
