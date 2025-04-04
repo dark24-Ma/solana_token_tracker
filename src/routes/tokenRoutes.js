@@ -11,6 +11,10 @@ const tokenController = new TokenController(solanaService);
 
 // Routes pour les tokens
 router.get('/', tokenController.getAllTokens.bind(tokenController));
+router.get('/memecoins', tokenController.getMemecoins.bind(tokenController));
+router.get('/memecoins/recent', tokenController.getRecentMemecoins.bind(tokenController));
+router.get('/memecoins/live', tokenController.getLiveNewMemecoins.bind(tokenController));
+router.get('/recent', tokenController.getRecentTokens.bind(tokenController));
 router.get('/:address', tokenController.getTokenByAddress.bind(tokenController));
 router.post('/', tokenController.addToken.bind(tokenController));
 router.put('/:address', tokenController.updateToken.bind(tokenController));

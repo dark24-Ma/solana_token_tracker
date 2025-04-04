@@ -28,6 +28,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS ?
   process.env.ALLOWED_ORIGINS.split(',') : 
   [
     "http://localhost:8080",
+    "http://localhost:6608",
     "http://127.0.0.1:8080",
     "https://solana-snipper-bot.vercel.app",
     "https://solana-token-tracker.vercel.app",
@@ -201,6 +202,30 @@ io.on('connection', (socket) => {
     }
   });
   
+  // Le client demande de démarrer la surveillance des tokens
+  socket.on('startWatching', () => {
+    if (global.solanaWatcher) {
+      // Vérifier si la surveillance est déjà active
+      if (!global.solanaWatcher.isWatching) {
+        socket.emit('systemLog', { type: 'info', message: 'Démarrage de la surveillance des tokens...' });
+        global.solanaWatcher.startWatching();
+        
+        // Attendre un moment pour s'assurer que le démarrage est effectif
+        setTimeout(() => {
+          if (global.solanaWatcher.isWatching) {
+            socket.emit('systemLog', { type: 'success', message: 'Surveillance des tokens démarrée avec succès' });
+          } else {
+            socket.emit('systemLog', { type: 'error', message: 'Impossible de démarrer la surveillance des tokens' });
+          }
+        }, 1000);
+      } else {
+        socket.emit('systemLog', { type: 'info', message: 'La surveillance des tokens est déjà active' });
+      }
+    } else {
+      socket.emit('systemLog', { type: 'error', message: 'SolanaWatcher non initialisé' });
+    }
+  });
+  
   // Le client demande le statut du système
   socket.on('getSystemStatus', async () => {
     try {
@@ -303,12 +328,21 @@ const startServer = async () => {
         io.emit('systemLog', { type: 'info', message: `${tokenCount} tokens existants en base de données` });
       }
       
-      // Démarrer la surveillance
-      console.log("Démarrage de la surveillance des tokens Solana...");
-      io.emit('systemLog', { type: 'info', message: 'Démarrage de la surveillance des nouveaux tokens...' });
+      // Démarrer automatiquement la surveillance
+      console.log("Démarrage de la surveillance des memecoins sur Solana...");
+      io.emit('systemLog', { type: 'info', message: 'Démarrage de la surveillance des memecoins...' });
       solanaWatcher.startWatching();
       
-      io.emit('systemLog', { type: 'success', message: 'Système de surveillance démarré avec succès' });
+      // Effectuer une vérification manuelle initiale
+      solanaWatcher.checkManually()
+        .then(() => {
+          io.emit('systemLog', { type: 'success', message: 'Vérification initiale terminée avec succès' });
+        })
+        .catch(error => {
+          io.emit('systemLog', { type: 'warning', message: 'Erreur lors de la vérification initiale: ' + error.message });
+        });
+      
+      io.emit('systemLog', { type: 'success', message: 'Système de surveillance des memecoins démarré avec succès' });
     } catch (error) {
       console.error("Erreur lors de l'initialisation:", error);
       io.emit('systemLog', { type: 'error', message: "Erreur lors de l'initialisation: " + error.message });

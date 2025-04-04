@@ -24,6 +24,7 @@ module.exports = (req, res) => {
         
         const allowedOrigins = [
           "http://localhost:8080", 
+          "http://localhost:6608", 
           "http://127.0.0.1:8080",
           "https://solana-snipper-bot.vercel.app",
           "https://solana-token-tracker.vercel.app",

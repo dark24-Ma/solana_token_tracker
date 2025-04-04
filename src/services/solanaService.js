@@ -136,15 +136,16 @@ class SolanaService {
       };
       
       // Ajouter des entêtes spécifiques pour Solscan
+      let requestUrl = url;
       if (isSolscanRequest) {
         headers['Referer'] = 'https://solscan.io/';
         headers['Origin'] = 'https://solscan.io';
         // Ajouter un paramètre aléatoire pour éviter le cache
         const randomParam = `_t=${Date.now()}`;
-        url = url.includes('?') ? `${url}&${randomParam}` : `${url}?${randomParam}`;
+        requestUrl = url.includes('?') ? `${url}&${randomParam}` : `${url}?${randomParam}`;
       }
       
-      const response = await axios.get(url, {
+      const response = await axios.get(requestUrl, {
         timeout: 15000, // Augmenter le timeout
         headers
       });
@@ -714,6 +715,139 @@ class SolanaService {
       logoURI: null,
       source: 'Fallback'
     };
+  }
+
+  // Récupérer les informations sur un token via DexScreener
+  async getTokenInfoFromDexScreener(mintAddress) {
+    try {
+      console.log(`Recherche d'informations sur DexScreener pour: ${mintAddress}`);
+      
+      // Appeler l'API DexScreener pour obtenir les paires de trading pour ce token
+      const response = await axios.get(`https://api.dexscreener.com/latest/dex/tokens/${mintAddress}`, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': this.getNextUserAgent()
+        },
+        timeout: 10000
+      });
+      
+      if (!response.data || !response.data.pairs || response.data.pairs.length === 0) {
+        console.log(`Aucune paire trouvée sur DexScreener pour: ${mintAddress}`);
+        return null;
+      }
+      
+      // Prendre la paire avec le plus de liquidité
+      const pairs = response.data.pairs;
+      const bestPair = pairs.sort((a, b) => 
+        parseFloat(b.liquidity?.usd || 0) - parseFloat(a.liquidity?.usd || 0)
+      )[0];
+      
+      console.log(`Information trouvée sur DexScreener pour ${mintAddress}: ${bestPair.baseToken.name} (${bestPair.baseToken.symbol})`);
+      
+      return {
+        name: bestPair.baseToken.name,
+        symbol: bestPair.baseToken.symbol,
+        priceUsd: parseFloat(bestPair.priceUsd || 0),
+        liquidity: parseFloat(bestPair.liquidity?.usd || 0),
+        volume24h: parseFloat(bestPair.volume?.h24 || 0),
+        priceChange24h: parseFloat(bestPair.priceChange?.h24 || 0),
+        fdv: parseFloat(bestPair.fdv || 0),
+        pairAddress: bestPair.pairAddress,
+        exchange: bestPair.dexId,
+        createdAt: new Date(bestPair.pairCreatedAt * 1000) // Convertir timestamp en Date
+      };
+    } catch (error) {
+      console.log(`Erreur lors de la recherche sur DexScreener: ${error.message}`);
+      return null;
+    }
+  }
+  
+  // Récupérer la liste des tokens récents depuis DexScreener
+  async getRecentTokensFromDexScreener(limit = 50) {
+    try {
+      console.log("Récupération des tokens récents via DexScreener...");
+      
+      // Utiliser l'API DexScreener pour obtenir les tokens les plus récents sur Solana
+      const response = await axios.get('https://api.dexscreener.com/token-profiles/latest/v1', {
+        params: {
+          sort: 'created', // Trier par date de création
+          desc: 'true',    // Du plus récent au plus ancien
+          page: '1'        // Première page
+        },
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': this.getNextUserAgent()
+        },
+        timeout: 15000
+      });
+      
+      // Vérifier la structure de la réponse
+      if (!response.data || !Array.isArray(response.data)) {
+        console.log("Réponse invalide de DexScreener");
+        return [];
+      }
+      
+      console.log(`${response.data.length} tokens récents trouvés sur DexScreener`);
+      
+      // Limiter le nombre de résultats
+      const tokenProfiles = response.data.slice(0, limit);
+      
+      // Pour chaque token profile, récupérer les informations détaillées
+      const tokens = await Promise.all(tokenProfiles.map(async profile => {
+        // Extraire l'adresse du token de l'URL ou directement du champ tokenAddress
+        let tokenAddress = profile.tokenAddress;
+        if (!tokenAddress && profile.url) {
+          // Extraire l'adresse du token de l'URL si nécessaire
+          const urlParts = profile.url.split('/');
+          tokenAddress = urlParts[urlParts.length - 1];
+        }
+        
+        if (!tokenAddress) {
+          console.log("Adresse de token introuvable dans le profil");
+          return null;
+        }
+        
+        // Obtenir des informations détaillées sur le token
+        try {
+          const tokenDetails = await this.getTokenInfoFromDexScreener(tokenAddress);
+          
+          if (tokenDetails) {
+            return {
+              ...tokenDetails,
+              mint: tokenAddress,
+              address: tokenAddress,
+              logoURI: profile.icon || null,
+              headerURI: profile.header || null,
+              links: profile.links || [],
+              // Si nous avons des informations officielles du site
+              website: profile.links?.find(link => link.label.toLowerCase() === 'website')?.url || null,
+              twitter: profile.links?.find(link => link.label.toLowerCase() === 'twitter')?.url || null
+            };
+          }
+          
+          // Si nous n'avons pas pu obtenir les détails complets, créer un objet minimal
+          return {
+            mint: tokenAddress,
+            address: tokenAddress,
+            name: tokenAddress.slice(0, 8) + '...',
+            symbol: 'UNKNOWN',
+            logoURI: profile.icon || null,
+            createdAt: new Date(),
+            website: profile.links?.find(link => link.label.toLowerCase() === 'website')?.url || null,
+            twitter: profile.links?.find(link => link.label.toLowerCase() === 'twitter')?.url || null
+          };
+        } catch (error) {
+          console.log(`Erreur lors de la récupération des détails pour ${tokenAddress}:`, error.message);
+          return null;
+        }
+      }));
+      
+      // Filtrer les tokens null
+      return tokens.filter(token => token !== null);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des tokens récents sur DexScreener:", error.message);
+      return [];
+    }
   }
 }
 

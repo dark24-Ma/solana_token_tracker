@@ -31,13 +31,37 @@ const tokenSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  priceUsd: {
+    type: Number,
+    default: 0
+  },
+  priceChange24h: {
+    type: Number,
+    default: 0
+  },
   volume24h: {
+    type: Number,
+    default: 0
+  },
+  liquidity: {
     type: Number,
     default: 0
   },
   marketCap: {
     type: Number,
     default: 0
+  },
+  fdv: {
+    type: Number, // Fully Diluted Valuation
+    default: 0
+  },
+  pairAddress: {
+    type: String,
+    default: null
+  },
+  exchange: {
+    type: String,
+    default: null
   },
   logoURI: {
     type: String,
@@ -54,6 +78,15 @@ const tokenSchema = new mongoose.Schema({
   holdersCount: {
     type: Number,
     default: 0
+  },
+  isMemecoin: {
+    type: Boolean,
+    default: false
+  },
+  tokenType: {
+    type: String,
+    enum: ['standard', 'memecoin', 'utility', 'governance', 'nft', 'defi', 'other'],
+    default: 'standard'
   },
   createdAt: {
     type: Date,

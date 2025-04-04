@@ -1,0 +1,264 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "API de Surveillance des Memecoins Solana",
+    "description": "Cette API permet de surveiller en temps réel les nouveaux memecoins créés sur la blockchain Solana"
+  },
+  "host": "localhost:3000",
+  "basePath": "/api",
+  "schemes": ["http"],
+  "paths": {
+    "/tokens": {
+      "get": {
+        "summary": "Récupérer tous les tokens",
+        "description": "Renvoie la liste des tokens dans la base de données",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Numéro de page",
+            "type": "integer",
+            "default": 1
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Nombre de résultats par page",
+            "type": "integer",
+            "default": 50
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "description": "Champ pour trier les résultats",
+            "type": "string",
+            "default": "createdAt"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Ordre de tri (asc ou desc)",
+            "type": "string",
+            "default": "desc"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Type de tokens à récupérer (memecoins pour les memecoins)",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des tokens"
+          }
+        }
+      }
+    },
+    "/tokens/memecoins": {
+      "get": {
+        "summary": "Récupérer tous les memecoins",
+        "description": "Renvoie la liste des memecoins dans la base de données",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Numéro de page",
+            "type": "integer",
+            "default": 1
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Nombre de résultats par page",
+            "type": "integer",
+            "default": 50
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "description": "Champ pour trier les résultats",
+            "type": "string",
+            "default": "createdAt"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Ordre de tri (asc ou desc)",
+            "type": "string",
+            "default": "desc"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des memecoins"
+          }
+        }
+      }
+    },
+    "/tokens/memecoins/recent": {
+      "get": {
+        "summary": "Récupérer les memecoins récents",
+        "description": "Renvoie la liste des memecoins récemment créés avec informations de marché",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Nombre de résultats",
+            "type": "integer",
+            "default": 20
+          },
+          {
+            "name": "minLiquidity",
+            "in": "query",
+            "description": "Liquidité minimale en USD",
+            "type": "number",
+            "default": 0
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "description": "Récupérer les tokens des x dernières heures",
+            "type": "integer",
+            "default": 24
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des memecoins récents"
+          }
+        }
+      }
+    },
+    "/tokens/memecoins/live": {
+      "get": {
+        "summary": "Récupérer les memecoins en direct",
+        "description": "Renvoie la liste des memecoins en direct depuis DexScreener (temps réel)",
+        "responses": {
+          "200": {
+            "description": "Liste des memecoins directement depuis DexScreener"
+          }
+        }
+      }
+    },
+    "/tokens/recent": {
+      "get": {
+        "summary": "Récupérer tous les tokens récents",
+        "description": "Renvoie la liste des tokens récemment créés",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Nombre de résultats",
+            "type": "integer",
+            "default": 20
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "description": "Récupérer les tokens des x dernières heures",
+            "type": "integer",
+            "default": 24
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des tokens récents"
+          }
+        }
+      }
+    },
+    "/tokens/{address}": {
+      "get": {
+        "summary": "Récupérer un token par son adresse",
+        "description": "Renvoie les détails d'un token spécifique",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "description": "Adresse du token sur Solana",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Détails du token"
+          },
+          "404": {
+            "description": "Token non trouvé"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Token": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "description": "Adresse du token"
+        },
+        "mint": {
+          "type": "string",
+          "description": "Mint address du token"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nom du token"
+        },
+        "symbol": {
+          "type": "string",
+          "description": "Symbole du token"
+        },
+        "decimals": {
+          "type": "integer",
+          "description": "Nombre de décimales"
+        },
+        "totalSupply": {
+          "type": "number",
+          "description": "Supply total du token"
+        },
+        "price": {
+          "type": "number",
+          "description": "Prix du token"
+        },
+        "priceUsd": {
+          "type": "number",
+          "description": "Prix en USD"
+        },
+        "priceChange24h": {
+          "type": "number",
+          "description": "Variation de prix sur 24h en pourcentage"
+        },
+        "volume24h": {
+          "type": "number",
+          "description": "Volume de trading sur 24h"
+        },
+        "liquidity": {
+          "type": "number",
+          "description": "Liquidité disponible en USD"
+        },
+        "marketCap": {
+          "type": "number",
+          "description": "Capitalisation boursière"
+        },
+        "fdv": {
+          "type": "number",
+          "description": "Fully Diluted Valuation"
+        },
+        "isMemecoin": {
+          "type": "boolean",
+          "description": "Indique si c'est un memecoin"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date de création du token dans la base de données"
+        }
+      }
+    }
+  }
+} 
