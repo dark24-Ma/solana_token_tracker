@@ -7,7 +7,7 @@ const tokenRoutes = require('./routes/tokenRoutes');
 const SolanaWatcher = require('./services/solanaWatcher');
 const SolanaService = require('./services/solanaService');
 const { createServer } = require('http');
-const { Server } = require('socket.io');
+const createSocketServer = require('./socket.io');
 const axios = require('axios');
 
 // Configuration globale d'axios pour éviter d'être bloqué par les API
@@ -23,7 +23,7 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
-// Configurer socket.io
+// Liste des origines autorisées
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? 
   process.env.ALLOWED_ORIGINS.split(',') : 
   [
@@ -32,56 +32,66 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS ?
     "http://127.0.0.1:8080",
     "https://solana-snipper-bot.vercel.app",
     "https://solana-token-tracker.vercel.app",
-    "https://solana-token-tracker-bb9j.vercel.app"
+    "https://solana-token-tracker-bb9j.vercel.app",
+    "http://185.97.146.99:6608"
   ];
 
-const io = new Server(httpServer, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"],
-    credentials: true
-  },
-  pingTimeout: 60000
-});
+// Configurer socket.io avec notre module spécialisé
+const io = createSocketServer(httpServer);
 
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Middleware pour permettre CORS
 app.use(cors({
   origin: function(origin, callback) {
     // Autoriser les requêtes sans origine (comme les appels d'API mobiles ou Postman)
     if (!origin) return callback(null, true);
     
-    // Vérifier si l'origine est autorisée
-    if (allowedOrigins.indexOf(origin) === -1) {
-      console.log(`Origine non autorisée: ${origin}`);
-      // Autoriser quand même en développement
-      if (process.env.NODE_ENV !== 'production') {
-        return callback(null, true);
-      }
-      
-      return callback(new Error('CORS non autorisé'), false);
+    // Vérifier si l'origine est autorisée ou si c'est une IP spécifique
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('185.97.146.99')) {
+      return callback(null, true);
     }
-    return callback(null, true);
+    
+    // En développement, autoriser toutes les origines
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    
+    console.log(`Origine HTTP non autorisée: ${origin}`);
+    return callback(new Error('CORS non autorisé'), false);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
 }));
 
-// Middleware supplémentaire pour les en-têtes CORS
+// Middleware supplémentaire pour les en-têtes CORS - important pour les navigateurs stricts
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
+  
+  // Autoriser l'origine spécifique ou appliquer le wildcard
+  if (origin && (allowedOrigins.includes(origin) || origin.includes('185.97.146.99'))) {
     res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
   }
+  
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Endpoint OPTIONS (pré-vérification)
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   next();
 });
 
+// Middleware pour servir les fichiers statiques depuis le dossier public
+app.use(express.static('public'));
+
+// Middleware pour analyser le corps des requêtes JSON
 app.use(express.json());
 
 // Nombre de clients connectés

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de connexion Socket.io</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #status {
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        #logs {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+            font-family: monospace;
+        }
+        .log-item {
+            margin-bottom: 5px;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button {
+            padding: 10px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test de connexion Socket.io Solana API</h1>
+    
+    <div id="status">
+        État de la connexion: <span id="connection-status">Déconnecté</span>
+    </div>
+    
+    <div class="actions">
+        <button id="connect-btn">Se connecter</button>
+        <button id="disconnect-btn" disabled>Déconnecter</button>
+        <button id="check-tokens-btn" disabled>Vérifier les tokens</button>
+    </div>
+    
+    <h2>Configuration</h2>
+    <form id="config-form">
+        <div>
+            <label for="api-url">URL de l'API:</label>
+            <input type="text" id="api-url" value="https://solana-token-tracker-api.vercel.app" style="width: 300px;">
+        </div>
+        <div>
+            <label for="transport">Transport:</label>
+            <select id="transport">
+                <option value="polling,websocket">Auto (polling + websocket)</option>
+                <option value="websocket">WebSocket uniquement</option>
+                <option value="polling">Long Polling uniquement</option>
+            </select>
+        </div>
+    </form>
+    
+    <h2>Logs</h2>
+    <div id="logs"></div>
+    
+    <!-- Charger Socket.io depuis CDN -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <script>
+        // Éléments DOM
+        const statusElement = document.getElementById('connection-status');
+        const logsElement = document.getElementById('logs');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const checkTokensBtn = document.getElementById('check-tokens-btn');
+        const apiUrlInput = document.getElementById('api-url');
+        const transportSelect = document.getElementById('transport');
+        
+        // Variable globale pour Socket.io
+        let socket = null;
+        
+        // Ajouter un log à l'interface
+        function addLog(message, type = 'info') {
+            const logItem = document.createElement('div');
+            logItem.className = `log-item ${type}`;
+            logItem.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsElement.appendChild(logItem);
+            logsElement.scrollTop = logsElement.scrollHeight;
+        }
+        
+        // Fonction pour se connecter à Socket.io
+        function connectToSocketIO() {
+            // Si déjà connecté, déconnecter d'abord
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            
+            const apiUrl = apiUrlInput.value.trim();
+            const transportValue = transportSelect.value;
+            const transports = transportValue.split(',');
+            
+            addLog(`Tentative de connexion à ${apiUrl} avec transport: ${transportValue}`, 'info');
+            
+            try {
+                // Configuration avancée pour éviter les problèmes CORS
+                socket = io(apiUrl, {
+                    transports: transports,
+                    withCredentials: true,
+                    forceNew: true,
+                    reconnectionAttempts: 5,
+                    timeout: 10000,
+                    extraHeaders: {
+                        'Origin': window.location.origin
+                    }
+                });
+                
+                // Gestion des événements Socket.io
+                socket.on('connect', () => {
+                    addLog('Connecté au serveur Socket.io!', 'success');
+                    statusElement.textContent = 'Connecté';
+                    statusElement.style.color = 'green';
+                    
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    checkTokensBtn.disabled = false;
+                });
+                
+                socket.on('connect_error', (error) => {
+                    addLog(`Erreur de connexion: ${error.message}`, 'error');
+                    statusElement.textContent = 'Erreur de connexion';
+                    statusElement.style.color = 'red';
+                });
+                
+                socket.on('disconnect', (reason) => {
+                    addLog(`Déconnecté: ${reason}`, 'info');
+                    statusElement.textContent = 'Déconnecté';
+                    statusElement.style.color = 'black';
+                    
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    checkTokensBtn.disabled = true;
+                });
+                
+                // Événements spécifiques de l'API
+                socket.on('welcome', (data) => {
+                    addLog(`Message de bienvenue: ${JSON.stringify(data)}`, 'info');
+                });
+                
+                socket.on('systemLog', (data) => {
+                    addLog(`Log système: ${data.message}`, data.type);
+                });
+                
+                socket.on('newToken', (token) => {
+                    addLog(`Nouveau token détecté: ${token.name} (${token.symbol})`, 'success');
+                });
+                
+                socket.on('clientCount', (data) => {
+                    addLog(`Nombre de clients connectés: ${data.count}`, 'info');
+                });
+                
+                socket.on('systemStatus', (status) => {
+                    addLog(`Statut du système: ${JSON.stringify(status)}`, 'info');
+                });
+                
+            } catch (error) {
+                addLog(`Erreur lors de l'initialisation de Socket.io: ${error.message}`, 'error');
+            }
+        }
+        
+        // Fonction pour déconnecter
+        function disconnectFromSocketIO() {
+            if (socket) {
+                socket.disconnect();
+                addLog('Déconnexion manuelle', 'info');
+            }
+        }
+        
+        // Fonction pour demander une vérification des tokens
+        function checkTokens() {
+            if (socket && socket.connected) {
+                socket.emit('checkSolscan');
+                addLog('Demande de vérification des tokens envoyée', 'info');
+            } else {
+                addLog('Impossible de vérifier les tokens: non connecté', 'error');
+            }
+        }
+        
+        // Gestionnaires d'événements pour les boutons
+        connectBtn.addEventListener('click', connectToSocketIO);
+        disconnectBtn.addEventListener('click', disconnectFromSocketIO);
+        checkTokensBtn.addEventListener('click', checkTokens);
+        
+        // Initialisation
+        addLog('Page chargée, prêt à se connecter', 'info');
+    </script>
+</body>
+</html> 

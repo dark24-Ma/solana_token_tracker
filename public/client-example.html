@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client API Solana - Exemple simplifié</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0 auto;
+            max-width: 800px;
+            padding: 20px;
+        }
+        #status {
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        #log {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-family: monospace;
+        }
+        .tokens {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .token-card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .token-card .name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .token-card .price {
+            color: green;
+            font-weight: bold;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Client API Solana - Exemple Minimal</h1>
+    
+    <div id="status">
+        Statut: <span id="connection-status">Déconnecté</span>
+    </div>
+    
+    <div>
+        <button id="connect-btn">Se connecter</button>
+        <button id="disconnect-btn" disabled>Déconnecter</button>
+        <button id="get-tokens-btn">Récupérer les tokens</button>
+    </div>
+    
+    <h3>Journal de connexion</h3>
+    <div id="log"></div>
+    
+    <h3>Derniers memecoins</h3>
+    <div id="tokens-container" class="tokens"></div>
+    
+    <!-- 1. Charger d'abord Socket.io depuis CDN -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- 2. Charger notre script client personnalisé -->
+    <script>
+        // Configuration simplifiée pour l'exemple
+        const API_URL = 'https://solana-token-tracker-api.vercel.app';
+        const API_SOCKET_URL = `${API_URL}`;
+        const API_HTTP_URL = `${API_URL}/api`;
+        
+        // Éléments DOM
+        const statusEl = document.getElementById('connection-status');
+        const logEl = document.getElementById('log');
+        const tokensContainerEl = document.getElementById('tokens-container');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const getTokensBtn = document.getElementById('get-tokens-btn');
+        
+        // Socket.IO client
+        let socket = null;
+        
+        // Fonction pour ajouter des logs
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        // Se connecter au serveur Socket.IO
+        function connect() {
+            try {
+                log('Tentative de connexion au serveur...');
+                
+                // Configuration spéciale pour éviter les problèmes CORS
+                socket = io(API_SOCKET_URL, {
+                    transports: ['polling', 'websocket'],
+                    withCredentials: true,
+                    forceNew: true,
+                    reconnectionAttempts: 5,
+                    timeout: 10000,
+                    extraHeaders: {
+                        'Origin': window.location.origin
+                    }
+                });
+                
+                // Événements de connexion
+                socket.on('connect', () => {
+                    log('Connecté au serveur!', 'success');
+                    statusEl.textContent = 'Connecté';
+                    statusEl.style.color = 'green';
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                });
+                
+                socket.on('connect_error', (error) => {
+                    log(`Erreur de connexion: ${error.message}`, 'error');
+                    statusEl.textContent = 'Erreur de connexion';
+                    statusEl.style.color = 'red';
+                });
+                
+                socket.on('disconnect', (reason) => {
+                    log(`Déconnecté: ${reason}`);
+                    statusEl.textContent = 'Déconnecté';
+                    statusEl.style.color = 'black';
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                });
+                
+                // Événements de l'API
+                socket.on('newToken', (token) => {
+                    log(`Nouveau token détecté: ${token.name}`);
+                    addTokenToUI(token);
+                });
+                
+                socket.on('systemLog', (data) => {
+                    log(`Serveur: ${data.message}`, data.type);
+                });
+                
+            } catch (error) {
+                log(`Erreur: ${error.message}`, 'error');
+            }
+        }
+        
+        // Se déconnecter
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                log('Déconnexion du serveur');
+            }
+        }
+        
+        // Récupérer les derniers memecoins via HTTP (sans utiliser Socket.io)
+        async function getLatestTokens() {
+            try {
+                log('Récupération des derniers memecoins...');
+                tokensContainerEl.innerHTML = '<div>Chargement...</div>';
+                
+                const response = await fetch(`${API_HTTP_URL}/tokens/memecoins/live`);
+                
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                log(`${data.tokens.length} memecoins récupérés`);
+                
+                // Afficher les tokens
+                displayTokens(data.tokens);
+                
+            } catch (error) {
+                log(`Erreur: ${error.message}`, 'error');
+                tokensContainerEl.innerHTML = `<div>Erreur: ${error.message}</div>`;
+            }
+        }
+        
+        // Afficher les tokens dans l'interface
+        function displayTokens(tokens) {
+            tokensContainerEl.innerHTML = '';
+            
+            if (!tokens || tokens.length === 0) {
+                tokensContainerEl.innerHTML = '<div>Aucun token trouvé</div>';
+                return;
+            }
+            
+            tokens.forEach(token => {
+                addTokenToUI(token);
+            });
+        }
+        
+        // Ajouter un token à l'interface
+        function addTokenToUI(token) {
+            const tokenEl = document.createElement('div');
+            tokenEl.className = 'token-card';
+            tokenEl.innerHTML = `
+                <div class="name">${token.name} (${token.symbol})</div>
+                <div class="price">${token.marketData?.priceFormatted || '$' + token.priceUsd}</div>
+                <div class="liquidity">Liquidité: ${token.marketData?.liquidityFormatted || '$' + token.liquidity}</div>
+                <div class="change">24h: <span style="color:${token.marketData?.priceChangeColor || 'gray'}">${token.marketData?.priceChange24hFormatted || token.priceChange24h + '%'}</span></div>
+            `;
+            
+            if (token.isNew) {
+                tokenEl.style.border = '2px solid #ff9800';
+            }
+            
+            tokensContainerEl.prepend(tokenEl);
+        }
+        
+        // Gestionnaires d'événements
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        getTokensBtn.addEventListener('click', getLatestTokens);
+        
+        // Initialisation
+        log('Page chargée. Prêt à se connecter.');
+    </script>
+</body>
+</html> 
