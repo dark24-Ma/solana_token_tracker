@@ -1,7 +1,7 @@
 const io = require('socket.io-client');
 
 // Connecter au serveur Socket.IO
-const socket = io('http://localhost:3000');
+const socket = io('http://185.97.146.99:6608');
 
 // Écouter les événements
 socket.on('connect', () => {
